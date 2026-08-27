@@ -14,15 +14,24 @@ export default function TelaInicial() {
   // 2. O "Carteiro": busca os artigos no Supabase assim que a tela abre
   useEffect(() => {
     const buscarArtigos = async () => {
-      const { data, error } = await supabase
-        .from('artigos')
-        .select('*')
-        .order('id', { ascending: false }); // Traz os mais novos primeiro
+  try {
+    const { data, error } = await supabase
+      .from('artigos')
+      .select('*')
+      .order('id', { ascending: false });
+      
+    if (error) {
+      console.error("Erro do banco:", error);
+      return;
+    }
 
-      if (data) {
-        setArtigos(data);
-      }
-    };
+    if (data) {
+      setArtigos(data);
+    }
+  } catch (err) {
+    console.error("Erro de conexão:", err);
+  }
+};
 
     buscarArtigos();
   }, []);
