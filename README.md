@@ -1,56 +1,62 @@
-# Welcome to your Expo app 👋
+# Projeto Aplicado: Plataforma Integrada de Saúde e Bem-Estar
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+**Instituição:** UNIFEBE (Centro Universitário de Brusque)  
+**Curso:** Sistemas de Informação  
+**Foco:** Integração de Sistemas, Desenvolvimento Mobile e Web  
 
-## Get started
+---
 
-1. Install dependencies
+## 📋 Resumo do Projeto
 
-   ```bash
-   npm install
-   ```
+Este repositório contém o código-fonte de um ecossistema digital desenvolvido para a gestão e o consumo de conteúdo focado em saúde e autoconhecimento. O projeto tem como objetivo principal demonstrar a implementação funcional de uma arquitetura distribuída e moderna, integrando aplicações frontend (Mobile e Web) a um serviço de backend gerenciado (BaaS - Backend as a Service).
 
-2. Start the app
+A solução elimina o acoplamento entre a atualização de dados e o ciclo de lançamento do aplicativo, permitindo que alterações realizadas em um painel administrativo web reflitam em tempo real na interface mobile do usuário final.
 
-   ```bash
-   npx expo start
-   ```
+---
 
-In the output, you'll find options to open the app in a
+## 🏗️ Arquitetura do Sistema
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+O projeto foi estruturado em três camadas independentes que se comunicam via API RESTFul:
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+1. **Frontend Mobile (Interface do Usuário):** 
+   Desenvolvido em **React Native** com o framework **Expo**. Atua como o cliente consumindo dados em tempo real. Possui navegação roteada nativamente via `expo-router` e gerencia estados assíncronos para exibição de artigos e calendário.
+2. **Frontend Web (Painel Administrativo):** 
+   Construído em **React** (utilizando **Vite** para empacotamento) e hospedado na Vercel. Serve como o ambiente de inserção e manutenção dos dados (CRUD).
+3. **Backend as a Service (Camada de Dados):** 
+   Provido pelo **Supabase** (baseado em PostgreSQL). Gerencia a persistência dos dados e expõe os endpoints consumidos pelos frontends de forma segura e escalável.
 
-## Get a fresh project
+---
 
-When you're ready, run:
+## 🎯 Objetivos e Requisitos Cumpridos
 
-```bash
-npm run reset-project
-```
+* **Desenvolvimento Cross-Platform:** Implementação de uma base de código unificada (JavaScript/TypeScript) capaz de gerar builds nativos para os sistemas operacionais Android (APK) e iOS.
+* **Desacoplamento e Sincronização:** Comprovação do modelo cliente-servidor onde a camada de apresentação (Mobile) não armazena dados locais estáticos, dependendo integralmente do estado do banco de dados na nuvem.
+* **Tratamento de Exceções e Estabilidade Nativa:** Implementação de `try/catch` em chamadas assíncronas para evitar fechamentos inesperados (crashes) em produção por falhas de rede. Resolução de conflitos de compilação nativa (Jetpack Compose e Polyfills de URL).
+* **Segurança e CI/CD:** Utilização de variáveis de ambiente (`.env` e `eas.json`) para ocultar chaves e credenciais do banco de dados do controle de versão público, integrando o processo de build através do EAS (Expo Application Services).
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+---
 
-### Other setup steps
+## 🛠️ Stack Tecnológico
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+* **Linguagem Base:** JavaScript / TypeScript
+* **Mobile:** React Native, Expo, Expo Router
+* **Web:** React, Vite
+* **Banco de Dados / API:** Supabase (PostgreSQL)
+* **Controle de Versão:** Git / GitHub
+* **Deploy e Build:** EAS Build (Mobile), Vercel (Web)
 
-## Learn more
+---
 
-To learn more about developing your project with Expo, look at the following resources:
+## ⚙️ Instruções de Execução (Ambiente de Desenvolvimento)
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+Para executar o projeto localmente para fins de avaliação técnica:
 
-## Join the community
+**1. Pré-requisitos:**
+* Node.js instalado (v18 ou superior).
+* Expo CLI instalado globalmente (`npm install -g expo-cli`).
 
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+**2. Configuração do Ambiente:**
+Crie um arquivo `.env` na raiz do projeto contendo as chaves de conexão com o banco de dados:
+```env
+EXPO_PUBLIC_SUPABASE_URL=https://[ID_DO_PROJETO].supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=[CHAVE_DE_API_PUBLICA]
