@@ -1,4 +1,4 @@
-import 'react-native-gesture-handler'; // Adicione esta linha no topo
+import 'react-native-gesture-handler';
 
 import { Stack } from 'expo-router';
 
