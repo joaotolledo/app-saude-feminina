@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Image,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -54,36 +55,43 @@ export default function TelaInicial() {
   const { width } = useWindowDimensions();
 
   const [artigos, setArtigos] = useState<any[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
   const [humorSelecionado, setHumorSelecionado] = useState<string>('otima');
   const [categoriaAtiva, setCategoriaAtiva] = useState<string>('Todos');
 
-  useEffect(() => {
-    const buscarArtigos = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('artigos')
-          .select('*')
-          .order('id', { ascending: false });
+  const buscarArtigos = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('artigos')
+        .select('*')
+        .order('id', { ascending: false });
 
-        if (error) {
-          console.log('Utilizando artigos locais:', error.message);
-          setArtigos(ARTIGOS_PADRAO);
-          return;
-        }
+      if (error) {
+        console.log('Utilizando artigos locais:', error.message);
+        setArtigos(ARTIGOS_PADRAO);
+        return;
+      }
 
-        if (data && data.length > 0) {
-          setArtigos(data);
-        } else {
-          setArtigos(ARTIGOS_PADRAO);
-        }
-      } catch (err) {
-        console.log('Utilizando artigos de demonstração');
+      if (data && data.length > 0) {
+        setArtigos(data);
+      } else {
         setArtigos(ARTIGOS_PADRAO);
       }
-    };
+    } catch (err) {
+      console.log('Utilizando artigos de demonstração');
+      setArtigos(ARTIGOS_PADRAO);
+    }
+  };
 
+  useEffect(() => {
     buscarArtigos();
   }, []);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await buscarArtigos();
+    setRefreshing(false);
+  };
 
   // Lista de artigos exibida de acordo com o filtro
   const artigosExibidos = (artigos.length > 0 ? artigos : ARTIGOS_PADRAO).filter(artigo => {
@@ -98,6 +106,14 @@ export default function TelaInicial() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#B55A7D']}
+            tintColor="#B55A7D"
+          />
+        }
       >
         {/* ============================================================ */}
         {/* CABEÇALHO ELEGANTE COM AVATAR E NOTIFICAÇÃO (Estilo Imagens 1 e 2) */}
