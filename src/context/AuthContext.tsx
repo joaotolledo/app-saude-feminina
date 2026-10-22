@@ -1,20 +1,19 @@
-import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
-
-export interface UserProfile {
-  id: string;
-  nome?: string;
-  data_nascimento?: string | null;
-  duracao_ciclo?: number | null;
-  duracao_periodo?: number | null;
-  created_at?: string;
-}
+import { UsuarioPerfil } from '../types';
 
 interface AuthContextData {
   session: Session | null;
   user: User | null;
-  profile: UserProfile | null;
+  profile: UsuarioPerfil | null;
   loading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -24,29 +23,28 @@ const AuthContext = createContext<AuthContextData>({} as AuthContextData);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profile, setProfile] = useState<UsuarioPerfil | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = useCallback(async (userId: string) => {
     try {
       const { data, error } = await supabase
         .from('usuarios')
-        .select('*')
+        .select('id, nome, data_nascimento, duracao_ciclo, duracao_periodo, created_at')
         .eq('id', userId)
         .maybeSingle();
 
       if (error) {
-        console.warn('[AuthContext] Erro ao carregar perfil de usuários:', error.message);
         return;
       }
 
       if (data) {
-        setProfile(data);
+        setProfile(data as UsuarioPerfil);
       }
-    } catch (err) {
-      console.warn('[AuthContext] Falha na requisição de perfil:', err);
+    } catch {
+      // Falha silenciosa para não travar a inicialização do app
     }
-  };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -54,16 +52,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // 1. Obter sessão inicial persistida no AsyncStorage
     supabase.auth
       .getSession()
-      .then(({ data: { session } }) => {
+      .then(({ data: { session: initialSession } }) => {
         if (!mounted) return;
-        setSession(session);
-        if (session?.user?.id) {
-          fetchProfile(session.user.id);
+        setSession(initialSession);
+        if (initialSession?.user?.id) {
+          fetchProfile(initialSession.user.id);
         }
         setLoading(false);
       })
-      .catch((err) => {
-        console.warn('[AuthContext] Erro ao obter sessão inicial:', err);
+      .catch(() => {
         if (mounted) setLoading(false);
       });
 
@@ -87,23 +84,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [fetchProfile]);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     try {
       await supabase.auth.signOut();
       setSession(null);
       setProfile(null);
-    } catch (err) {
-      console.error('[AuthContext] Erro ao encerrar sessão:', err);
+    } catch {
+      // Ignora erro no logout local
     }
-  };
+  }, []);
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     if (session?.user?.id) {
       await fetchProfile(session.user.id);
     }
-  };
+  }, [session?.user?.id, fetchProfile]);
 
   const value = useMemo(
     () => ({
@@ -114,7 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signOut,
       refreshProfile,
     }),
-    [session, profile, loading]
+    [session, profile, loading, signOut, refreshProfile]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import {
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,11 +11,20 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FloatingBottomNav } from '../components/FloatingBottomNav';
+import { AppTheme } from '../constants/theme';
 
 export default function BemEstar() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    setRefreshing(false);
+  }, []);
 
   const isSmallScreen = width < 360;
 
@@ -25,6 +36,14 @@ export default function BemEstar() {
           styles.scrollContent,
           { paddingBottom: Math.max(20, insets.bottom) + 90 },
         ]}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[AppTheme.colors.primary]}
+            tintColor={AppTheme.colors.primary}
+          />
+        }
       >
         {/* CABEÇALHO */}
         <View style={styles.header}>
@@ -143,58 +162,8 @@ export default function BemEstar() {
         </View>
       </ScrollView>
 
-      {/* ============================================================ */}
-      {/* BARRA DE NAVEGAÇÃO INFERIOR FLUTUANTE PADRONIZADA */}
-      {/* ============================================================ */}
-      <View
-        style={[
-          styles.floatingNavContainer,
-          { bottom: Math.max(12, insets.bottom) },
-        ]}
-      >
-        <View style={styles.floatingNav}>
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => router.push('/')}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="home-outline" size={22} color="#888888" />
-            <Text style={styles.navText}>Início</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => router.push('/calendario')}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="calendar-outline" size={22} color="#888888" />
-            <Text style={styles.navText}>Ciclo</Text>
-          </TouchableOpacity>
-
-          {/* Botão Central de Destaque */}
-          <TouchableOpacity
-            style={styles.navCenterButton}
-            onPress={() => router.push('/calendario')}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="heart" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => router.push('/saude')}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="body-outline" size={22} color="#888888" />
-            <Text style={styles.navText}>Saúde</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.navItem} activeOpacity={0.7}>
-            <Ionicons name="sparkles" size={22} color="#B55A7D" />
-            <Text style={styles.navTextAtivo}>Bem-estar</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      {/* BARRA DE NAVEGAÇÃO INFERIOR FLUTUANTE (Glassmorphism estilo Apple) */}
+      <FloatingBottomNav activeTab="bemestar" />
     </SafeAreaView>
   );
 }

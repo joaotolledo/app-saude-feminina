@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -14,6 +15,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FloatingBottomNav } from '../components/FloatingBottomNav';
 
 const MESES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -72,17 +74,17 @@ export default function Calendario() {
   const [sintomasTemporarios, setSintomasTemporarios] = useState<string[]>([]);
   const [notaTemporaria, setNotaTemporaria] = useState('');
 
-  // Cálculo da quantidade de dias e primeiro dia da semana
-  const diasNoMes = new Date(anoAtual, mesAtual + 1, 0).getDate();
-  const primeiroDiaSemana = new Date(anoAtual, mesAtual, 1).getDay();
-  const dias = Array.from({ length: diasNoMes }, (_, i) => i + 1);
+  // Cálculo da quantidade de dias e primeiro dia da semana (memoizado)
+  const diasNoMes = useMemo(() => new Date(anoAtual, mesAtual + 1, 0).getDate(), [anoAtual, mesAtual]);
+  const primeiroDiaSemana = useMemo(() => new Date(anoAtual, mesAtual, 1).getDay(), [anoAtual, mesAtual]);
+  const dias = useMemo(() => Array.from({ length: diasNoMes }, (_, i) => i + 1), [diasNoMes]);
 
   // Chave da data atual selecionada
   const chaveDataSelecionada = `${anoAtual}-${mesAtual + 1}-${diaSelecionado}`;
   const registroAtual = registrosSintomas[chaveDataSelecionada];
 
   // Cálculo dinâmico das fases do ciclo (ciclo padrão de 28 dias)
-  const calcularFaseCiclo = (dia: number, mes: number, ano: number) => {
+  const calcularFaseCiclo = useCallback((dia: number, mes: number, ano: number) => {
     // Referência alinhada: ciclo iniciando em 23/02/2026
     const dataReferencia = new Date(2026, 1, 23);
     const dataAlvo = new Date(ano, mes, dia);
@@ -123,12 +125,15 @@ export default function Calendario() {
         corIcone: '#D1B875',
       };
     }
-  };
+  }, []);
 
-  const faseSelecionada = calcularFaseCiclo(diaSelecionado, mesAtual, anoAtual);
+  const faseSelecionada = useMemo(
+    () => calcularFaseCiclo(diaSelecionado, mesAtual, anoAtual),
+    [calcularFaseCiclo, diaSelecionado, mesAtual, anoAtual]
+  );
 
   // Navegação de meses
-  const voltarMes = () => {
+  const voltarMes = useCallback(() => {
     let novoMes = mesAtual - 1;
     let novoAno = anoAtual;
     if (novoMes < 0) {
@@ -141,9 +146,9 @@ export default function Calendario() {
     if (diaSelecionado > maxDias) {
       setDiaSelecionado(maxDias);
     }
-  };
+  }, [mesAtual, anoAtual, diaSelecionado]);
 
-  const avancarMes = () => {
+  const avancarMes = useCallback(() => {
     let novoMes = mesAtual + 1;
     let novoAno = anoAtual;
     if (novoMes > 11) {
@@ -156,9 +161,9 @@ export default function Calendario() {
     if (diaSelecionado > maxDias) {
       setDiaSelecionado(maxDias);
     }
-  };
+  }, [mesAtual, anoAtual, diaSelecionado]);
 
-  const selecionarMesAno = (mesIndex: number, ano: number) => {
+  const selecionarMesAno = useCallback((mesIndex: number, ano: number) => {
     setMesAtual(mesIndex);
     setAnoAtual(ano);
     const maxDias = new Date(ano, mesIndex + 1, 0).getDate();
@@ -166,10 +171,10 @@ export default function Calendario() {
       setDiaSelecionado(maxDias);
     }
     setModalMesAnoAberto(false);
-  };
+  }, [diaSelecionado]);
 
   // Funções de Sintomas
-  const abrirModalSintomas = () => {
+  const abrirModalSintomas = useCallback(() => {
     if (registroAtual) {
       setSintomasTemporarios([...registroAtual.sintomas]);
       setNotaTemporaria(registroAtual.nota || '');
@@ -178,57 +183,59 @@ export default function Calendario() {
       setNotaTemporaria('');
     }
     setModalSintomasAberto(true);
-  };
+  }, [registroAtual]);
 
-  const toggleSintoma = (nome: string) => {
-    if (sintomasTemporarios.includes(nome)) {
-      setSintomasTemporarios(sintomasTemporarios.filter(s => s !== nome));
-    } else {
-      setSintomasTemporarios([...sintomasTemporarios, nome]);
-    }
-  };
+  const toggleSintoma = useCallback((nome: string) => {
+    setSintomasTemporarios(prev =>
+      prev.includes(nome) ? prev.filter(s => s !== nome) : [...prev, nome]
+    );
+  }, []);
 
-  const salvarSintomas = () => {
+  const salvarSintomas = useCallback(() => {
+    Keyboard.dismiss();
     if (sintomasTemporarios.length === 0 && !notaTemporaria.trim()) {
-      // Se não sobrou nada, remove o registro
-      const copia = { ...registrosSintomas };
-      delete copia[chaveDataSelecionada];
-      setRegistrosSintomas(copia);
+      setRegistrosSintomas(prev => {
+        const copia = { ...prev };
+        delete copia[chaveDataSelecionada];
+        return copia;
+      });
     } else {
-      setRegistrosSintomas({
-        ...registrosSintomas,
+      setRegistrosSintomas(prev => ({
+        ...prev,
         [chaveDataSelecionada]: {
           sintomas: sintomasTemporarios,
           nota: notaTemporaria.trim() || undefined,
         },
-      });
+      }));
     }
     setModalSintomasAberto(false);
-  };
+  }, [chaveDataSelecionada, notaTemporaria, sintomasTemporarios]);
 
-  const removerSintoma = (nome: string) => {
+  const removerSintoma = useCallback((nome: string) => {
     if (!registroAtual) return;
     const novosSintomas = registroAtual.sintomas.filter(s => s !== nome);
     if (novosSintomas.length === 0 && !registroAtual.nota) {
-      const copia = { ...registrosSintomas };
-      delete copia[chaveDataSelecionada];
-      setRegistrosSintomas(copia);
+      setRegistrosSintomas(prev => {
+        const copia = { ...prev };
+        delete copia[chaveDataSelecionada];
+        return copia;
+      });
     } else {
-      setRegistrosSintomas({
-        ...registrosSintomas,
+      setRegistrosSintomas(prev => ({
+        ...prev,
         [chaveDataSelecionada]: {
           ...registroAtual,
           sintomas: novosSintomas,
         },
-      });
+      }));
     }
-  };
+  }, [chaveDataSelecionada, registroAtual]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: Math.max(40, insets.bottom + 20) }}
+        contentContainerStyle={{ paddingBottom: Math.max(20, insets.bottom) + 90 }}
       >
 
         {/* CABEÇALHO */}
@@ -371,6 +378,16 @@ export default function Calendario() {
               <Text style={styles.notaCardText}>{registroAtual.nota}</Text>
             </View>
           ) : null}
+
+          {/* ESTADO VAZIO INFORMATIVO QUANDO NÃO HÁ SINTOMAS */}
+          {(!registroAtual || (registroAtual.sintomas.length === 0 && !registroAtual.nota)) && (
+            <View style={styles.sintomasEmptyRow}>
+              <Ionicons name="leaf-outline" size={16} color="#A09398" style={{ marginRight: 6 }} />
+              <Text style={styles.sintomasEmptyText}>
+                Nenhum sintoma ou observação registrada para este dia.
+              </Text>
+            </View>
+          )}
 
           <TouchableOpacity
             style={styles.addButton}
@@ -543,6 +560,9 @@ export default function Calendario() {
         </Modal>
 
       </ScrollView>
+
+      {/* BARRA DE NAVEGAÇÃO INFERIOR FLUTUANTE COM GLASSMORPHISM */}
+      <FloatingBottomNav activeTab="calendario" />
     </SafeAreaView>
   );
 }
@@ -609,6 +629,23 @@ const styles = StyleSheet.create({
     borderColor: '#FADEE5',
   },
   notaCardText: { flex: 1, fontSize: 13, color: '#5C5257', lineHeight: 18 },
+
+  sintomasEmptyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF5F8',
+    padding: 12,
+    borderRadius: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#F3E5EA',
+  },
+  sintomasEmptyText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#8E7E86',
+    lineHeight: 18,
+  },
 
   addButton: { backgroundColor: '#FADEE5', paddingVertical: 15, borderRadius: 15, alignItems: 'center' },
   addButtonText: { color: '#B55A7D', fontSize: 16, fontWeight: 'bold' },

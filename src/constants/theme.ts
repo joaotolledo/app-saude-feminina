@@ -61,5 +61,61 @@ export const Spacing = {
   six: 64,
 } as const;
 
+export const AppTheme = {
+  colors: {
+    primary: '#B55A7D',
+    primaryDark: '#8F3D5E',
+    primaryLight: '#FCE8EE',
+    primarySoft: '#FADEE5',
+    background: '#FFF5F8',
+    card: '#FFFFFF',
+    text: '#4A3E44',
+    textSecondary: '#8E7E86',
+    textMuted: '#B0A4A8',
+    border: '#F3E5EA',
+    borderSubtle: '#ECDCE2',
+    success: '#2E7D32',
+    successBg: '#E8F5E9',
+    warning: '#D97706',
+    warningBg: '#FFF3E0',
+    error: '#D32F2F',
+    errorBg: '#FEEBEE',
+    lavender: '#8A72C1',
+    lavenderLight: '#F3EFFF',
+    peach: '#E07A5F',
+    peachLight: '#FFF5EE',
+  },
+  radius: {
+    sm: 10,
+    md: 16,
+    lg: 22,
+    pill: 999,
+  },
+  shadows: {
+    card: {
+      shadowColor: '#B55A7D',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.08,
+      shadowRadius: 10,
+      elevation: 3,
+    },
+    button: {
+      shadowColor: '#B55A7D',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.28,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    dock: {
+      shadowColor: '#B55A7D',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.16,
+      shadowRadius: 18,
+      elevation: 10,
+    },
+  },
+} as const;
+
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;
+

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Image,
   RefreshControl,
@@ -14,36 +14,11 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../supabaseClient';
+import { Artigo, Humor } from '../types';
+import { EmptyState, ErrorState, FloatingBottomNav, LoadingIndicator } from '../components';
+import { normalizarArtigo } from '../utils/artigos';
 
-// Artigos padrão caso o banco não retorne dados no momento
-const ARTIGOS_PADRAO = [
-  {
-    id: 1,
-    categoria: 'Ciclo Menstrual',
-    titulo: 'Entendendo as 4 fases do seu ciclo menstrual',
-    resumo: 'Aprenda como as oscilações hormonais influenciam sua energia, humor e disposição ao longo do mês.',
-    data: '20 Out 2026',
-    tempo_leitura: '4 min',
-  },
-  {
-    id: 2,
-    categoria: 'Bem-estar',
-    titulo: 'Alimentos que ajudam a aliviar cólicas e TPM',
-    resumo: 'Descubra nutrientes anti-inflamatórios essenciais que promovem conforto e equilíbrio no seu dia a dia.',
-    data: '18 Out 2026',
-    tempo_leitura: '3 min',
-  },
-  {
-    id: 3,
-    categoria: 'Saúde & Corpo',
-    titulo: 'Dicas de autocuidado para os dias de menor energia',
-    resumo: 'Pequenos hábitos diários de respiração, hidratação e pausas conscientes para revitalizar o corpo e a mente.',
-    data: '15 Out 2026',
-    tempo_leitura: '5 min',
-  },
-];
-
-const HUMORES = [
+const HUMORES: Humor[] = [
   { id: 'otima', emoji: '🌸', nome: 'Ótima', cor: '#FCE8EE', mensagem: 'Que maravilhoso! Aproveite sua vitalidade hoje.' },
   { id: 'bem', emoji: '😊', nome: 'Bem', cor: '#E8F5E9', mensagem: 'Um ótimo dia para manter o foco e boas práticas.' },
   { id: 'tranquila', emoji: '😌', nome: 'Tranquila', cor: '#EDE7F6', mensagem: 'Dia sereno: momento perfeito para respirar e cuidar de si.' },
@@ -57,58 +32,130 @@ export default function TelaInicial() {
   const { width } = useWindowDimensions();
   const { session, profile, signOut, loading: authLoading } = useAuth();
 
-  const [artigos, setArtigos] = useState<any[]>([]);
+  const [artigos, setArtigos] = useState<Artigo[]>([]);
+  const [carregandoArtigos, setCarregandoArtigos] = useState(true);
+  const [erroArtigos, setErroArtigos] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [humorSelecionado, setHumorSelecionado] = useState<string>('otima');
   const [categoriaAtiva, setCategoriaAtiva] = useState<string>('Todos');
 
-  const buscarArtigos = async () => {
+  const buscarArtigos = useCallback(async () => {
     try {
+      setErroArtigos(null);
+      // Busca todos os artigos do Supabase
       const { data, error } = await supabase
         .from('artigos')
         .select('*')
         .order('id', { ascending: false });
 
       if (error) {
-        console.log('Utilizando artigos locais:', error.message);
-        setArtigos(ARTIGOS_PADRAO);
+        // eslint-disable-next-line no-console
+        console.warn('[Supabase] Erro ao buscar artigos:', error.message);
+        setErroArtigos('Não foi possível carregar os artigos no momento. Verifique sua conexão e tente novamente.');
+        setArtigos([]);
         return;
       }
 
       if (data && data.length > 0) {
-        setArtigos(data);
+        const artigosNormalizados = data.map(normalizarArtigo);
+        setArtigos(artigosNormalizados);
       } else {
-        setArtigos(ARTIGOS_PADRAO);
+        setArtigos([]);
       }
-    } catch (err) {
-      console.log('Utilizando artigos de demonstração');
-      setArtigos(ARTIGOS_PADRAO);
+    } catch (err: any) {
+      // eslint-disable-next-line no-console
+      console.warn('[Supabase] Falha ao consultar feed de artigos:', err?.message || err);
+      setErroArtigos('Não foi possível carregar os artigos no momento. Verifique sua conexão e tente novamente.');
+      setArtigos([]);
+    } finally {
+      setCarregandoArtigos(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    if (session) {
-      buscarArtigos();
-    }
-  }, [session]);
+    buscarArtigos();
+  }, [session, buscarArtigos]);
 
-  const onRefresh = async () => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await buscarArtigos();
     setRefreshing(false);
-  };
+  }, [buscarArtigos]);
+
+  // Categorias disponíveis no filtro de pílulas (padrão + vindas do Supabase)
+  const categoriasDisponiveis = useMemo(() => {
+    const padrao = ['Todos', 'Ciclo Menstrual', 'Bem-estar', 'Saúde & Corpo'];
+    const extras = new Set<string>();
+
+    artigos.forEach((artigo) => {
+      if (!artigo.categoria) return;
+      const cat = artigo.categoria.trim();
+      const norm = cat.toLowerCase();
+      const jaExiste =
+        norm === 'todos' ||
+        norm === 'ciclo menstrual' ||
+        norm === 'ciclo' ||
+        norm === 'bem-estar' ||
+        norm === 'bem estar' ||
+        norm === 'saúde' ||
+        norm === 'saude' ||
+        norm === 'saúde & corpo' ||
+        norm === 'corpo';
+
+      if (!jaExiste && cat.length > 0) {
+        extras.add(cat.charAt(0).toUpperCase() + cat.slice(1));
+      }
+    });
+
+    return [...padrao, ...Array.from(extras)];
+  }, [artigos]);
+
+  // Lista de artigos exibida de acordo com o filtro (memoizado e com correspondência amigável)
+  const artigosExibidos = useMemo(() => {
+    if (categoriaAtiva === 'Todos') return artigos;
+
+    const filtro = categoriaAtiva.toLowerCase().trim();
+
+    return artigos.filter((artigo) => {
+      if (!artigo.categoria) return false;
+      const cat = artigo.categoria.toLowerCase().trim();
+
+      if (cat === filtro) return true;
+      if (filtro.includes(cat) || cat.includes(filtro)) return true;
+
+      if (
+        filtro === 'saúde & corpo' &&
+        (cat === 'saúde' || cat === 'saude' || cat === 'corpo' || cat.includes('saúde') || cat.includes('saude'))
+      ) {
+        return true;
+      }
+
+      if (
+        filtro === 'ciclo menstrual' &&
+        (cat === 'ciclo' || cat === 'menstruação' || cat === 'menstruacao' || cat.includes('ciclo'))
+      ) {
+        return true;
+      }
+
+      if (
+        filtro === 'bem-estar' &&
+        (cat === 'bem-estar' || cat === 'bem estar' || cat.includes('bem'))
+      ) {
+        return true;
+      }
+
+      return false;
+    });
+  }, [artigos, categoriaAtiva]);
+
+  const humorAtualObj = useMemo(
+    () => HUMORES.find((h) => h.id === humorSelecionado) || HUMORES[0],
+    [humorSelecionado]
+  );
 
   if (authLoading || !session) {
     return null;
   }
-
-  // Lista de artigos exibida de acordo com o filtro
-  const artigosExibidos = (artigos.length > 0 ? artigos : ARTIGOS_PADRAO).filter(artigo => {
-    if (categoriaAtiva === 'Todos') return true;
-    return artigo.categoria?.toLowerCase() === categoriaAtiva.toLowerCase();
-  });
-
-  const humorAtualObj = HUMORES.find(h => h.id === humorSelecionado);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
@@ -395,8 +442,8 @@ export default function TelaInicial() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.pillsContainer}
           >
-            {['Todos', 'Ciclo Menstrual', 'Bem-estar', 'Saúde & Corpo'].map(cat => {
-              const ativo = categoriaAtiva === cat;
+            {categoriasDisponiveis.map(cat => {
+              const ativo = categoriaAtiva.toLowerCase() === cat.toLowerCase();
               return (
                 <TouchableOpacity
                   key={cat}
@@ -410,99 +457,65 @@ export default function TelaInicial() {
             })}
           </ScrollView>
 
-          {/* Lista de Artigos em Cards Estilizados */}
+          {/* Lista de Artigos em Cards Estilizados, Carregamento, Erro ou Estado Vazio */}
           <View style={styles.artigosList}>
-            {artigosExibidos.map(artigo => (
-              <TouchableOpacity
-                key={artigo.id}
-                style={styles.artigoCardModerno}
-                onPress={() => router.push({ pathname: '/artigo', params: { id: artigo.id } })}
-                activeOpacity={0.8}
-              >
-                <View style={styles.artigoHeaderRow}>
-                  <View style={styles.artigoDateBadge}>
-                    <Ionicons name="calendar-outline" size={13} color="#B55A7D" style={{ marginRight: 4 }} />
-                    <Text style={styles.artigoDateText}>{artigo.data || 'Artigo Recomendado'}</Text>
+            {carregandoArtigos && !refreshing ? (
+              <LoadingIndicator message="Carregando artigos..." />
+            ) : erroArtigos ? (
+              <ErrorState
+                title="Não foi possível carregar os artigos"
+                message={erroArtigos}
+                onRetry={buscarArtigos}
+              />
+            ) : artigosExibidos.length === 0 ? (
+              <EmptyState
+                icon="newspaper-outline"
+                title="Nenhum artigo encontrado"
+                message="Não encontramos conteúdos publicados para esta categoria no momento."
+              />
+            ) : (
+              artigosExibidos.map(artigo => (
+                <TouchableOpacity
+                  key={artigo.id}
+                  style={styles.artigoCardModerno}
+                  onPress={() => router.push({ pathname: '/artigo', params: { id: artigo.id } })}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.artigoHeaderRow}>
+                    <View style={styles.artigoDateBadge}>
+                      <Ionicons name="calendar-outline" size={13} color="#B55A7D" style={{ marginRight: 4 }} />
+                      <Text style={styles.artigoDateText}>{artigo.data || 'Artigo Recomendado'}</Text>
+                    </View>
+                    <View style={styles.artigoCategoryBadge}>
+                      <Text style={styles.artigoCategoryText}>{artigo.categoria || 'Geral'}</Text>
+                    </View>
                   </View>
-                  <View style={styles.artigoCategoryBadge}>
-                    <Text style={styles.artigoCategoryText}>{artigo.categoria || 'Geral'}</Text>
-                  </View>
-                </View>
 
-                <Text style={styles.artigoTituloModerno}>{artigo.titulo}</Text>
-                <Text style={styles.artigoResumoModerno} numberOfLines={2}>
-                  {artigo.resumo}
-                </Text>
+                  <Text style={styles.artigoTituloModerno}>{artigo.titulo}</Text>
+                  <Text style={styles.artigoResumoModerno} numberOfLines={2}>
+                    {artigo.resumo}
+                  </Text>
 
-                <View style={styles.artigoFooterRow}>
-                  <View style={styles.artigoTempo}>
-                    <Ionicons name="time-outline" size={14} color="#888" style={{ marginRight: 4 }} />
-                    <Text style={styles.artigoTempoText}>{artigo.tempo_leitura || '3 min'}</Text>
-                  </View>
+                  <View style={styles.artigoFooterRow}>
+                    <View style={styles.artigoTempo}>
+                      <Ionicons name="time-outline" size={14} color="#888" style={{ marginRight: 4 }} />
+                      <Text style={styles.artigoTempoText} numberOfLines={1}>{artigo.tempo_leitura || '3 min'}</Text>
+                    </View>
 
-                  <View style={styles.artigoLerMais}>
-                    <Text style={styles.artigoLerMaisText}>Ler artigo completo</Text>
-                    <Ionicons name="arrow-forward" size={14} color="#B55A7D" style={{ marginLeft: 4 }} />
+                    <View style={styles.artigoLerMais}>
+                      <Text style={styles.artigoLerMaisText}>Ler artigo completo</Text>
+                      <Ionicons name="arrow-forward" size={14} color="#B55A7D" style={{ marginLeft: 4 }} />
+                    </View>
                   </View>
-                </View>
-              </TouchableOpacity>
-            ))}
+                </TouchableOpacity>
+              ))
+            )}
           </View>
         </View>
       </ScrollView>
 
-      {/* ============================================================ */}
-      {/* BARRA DE NAVEGAÇÃO INFERIOR FLUTUANTE (Estilo Imagens 1 e 2) */}
-      {/* ============================================================ */}
-      <View
-        style={[
-          styles.floatingNavContainer,
-          { bottom: Math.max(12, insets.bottom) },
-        ]}
-      >
-        <View style={styles.floatingNav}>
-          <TouchableOpacity style={styles.navItem} activeOpacity={0.7}>
-            <Ionicons name="home" size={22} color="#B55A7D" />
-            <Text style={styles.navTextAtivo}>Início</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => router.push('/calendario')}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="calendar-outline" size={22} color="#888888" />
-            <Text style={styles.navText}>Ciclo</Text>
-          </TouchableOpacity>
-
-          {/* Botão Central de Destaque */}
-          <TouchableOpacity
-            style={styles.navCenterButton}
-            onPress={() => router.push('/calendario')}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="heart" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => router.push('/saude')}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="body-outline" size={22} color="#888888" />
-            <Text style={styles.navText}>Saúde</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => router.push('/bemestar')}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="sparkles-outline" size={22} color="#888888" />
-            <Text style={styles.navText}>Bem-estar</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      {/* BARRA DE NAVEGAÇÃO INFERIOR FLUTUANTE COM GLASSMORPHISM */}
+      <FloatingBottomNav activeTab="inicio" />
     </SafeAreaView>
   );
 }
