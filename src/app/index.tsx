@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { supabase } from '../supabaseClient';
+import { useAuth } from '../context/AuthContext';
 
 // Artigos padrão caso o banco não retorne dados no momento
 const ARTIGOS_PADRAO = [
@@ -53,6 +54,7 @@ const HUMORES = [
 export default function TelaInicial() {
   const router = useRouter();
   const { width } = useWindowDimensions();
+  const { session, profile, signOut, loading: authLoading } = useAuth();
 
   const [artigos, setArtigos] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -84,14 +86,20 @@ export default function TelaInicial() {
   };
 
   useEffect(() => {
-    buscarArtigos();
-  }, []);
+    if (session) {
+      buscarArtigos();
+    }
+  }, [session]);
 
   const onRefresh = async () => {
     setRefreshing(true);
     await buscarArtigos();
     setRefreshing(false);
   };
+
+  if (authLoading || !session) {
+    return null;
+  }
 
   // Lista de artigos exibida de acordo com o filtro
   const artigosExibidos = (artigos.length > 0 ? artigos : ARTIGOS_PADRAO).filter(artigo => {
@@ -127,14 +135,24 @@ export default function TelaInicial() {
             </View>
             <View style={styles.userTextContainer}>
               <Text style={styles.welcomeText}>Bem-vinda de volta</Text>
-              <Text style={styles.userNameText}>Minha Saúde</Text>
+              <Text style={styles.userNameText}>{profile?.nome || 'Minha Saúde'}</Text>
             </View>
           </View>
 
-          <TouchableOpacity style={styles.notificationBtn} activeOpacity={0.7}>
-            <Ionicons name="notifications-outline" size={22} color="#5C5257" />
-            <View style={styles.notificationBadge} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TouchableOpacity style={[styles.notificationBtn, { marginRight: 8 }]} activeOpacity={0.7}>
+              <Ionicons name="notifications-outline" size={22} color="#5C5257" />
+              <View style={styles.notificationBadge} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.notificationBtn}
+              onPress={() => signOut()}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="log-out-outline" size={20} color="#B55A7D" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* ============================================================ */}
