@@ -15,12 +15,14 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useAuth } from '../context/AuthContext';
 import { supabase } from '../supabaseClient';
 import { AppTheme } from '../constants/theme';
 
 export default function CadastroScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { refreshProfile } = useAuth();
 
   const emailInputRef = useRef<TextInput>(null);
   const senhaInputRef = useRef<TextInput>(null);
@@ -35,7 +37,6 @@ export default function CadastroScreen() {
 
   const [loading, setLoading] = useState(false);
   const [mensagemErro, setMensagemErro] = useState<string | null>(null);
-  const [sucessoConfirmacao, setSucessoConfirmacao] = useState(false);
 
   const validarFormulario = (): boolean => {
     const nomeLimpo = nome.trim();
@@ -113,31 +114,58 @@ export default function CadastroScreen() {
 
       if (error) {
         setMensagemErro(traduzirErroSupabase(error.message));
+        setLoading(false);
         return;
       }
 
-      // 2. Salvar registro na tabela pública 'usuarios'
-      if (data?.user?.id) {
-        const { error: dbError } = await supabase.from('usuarios').insert([
-          {
-            id: data.user.id,
-            nome: nomeFormatado,
-          },
-        ]);
+      let activeSession = data?.session;
+      let userId = data?.user?.id;
 
-        if (dbError) {
+      // Se a confirmação de e-mail estiver desligada mas a sessão não veio no retorno do signUp,
+      // autentica explicitamente com a senha recém-criada
+      if (!activeSession) {
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email: emailFormatado,
+          password: senha,
+        });
+
+        if (signInError) {
+          setMensagemErro(traduzirErroSupabase(signInError.message));
+          setLoading(false);
+          return;
+        }
+
+        activeSession = signInData?.session;
+        userId = signInData?.user?.id || userId;
+      }
+
+      // 2. Salvar ou atualizar registro na tabela pública 'usuarios'
+      if (userId) {
+        try {
+          await supabase.from('usuarios').upsert(
+            [
+              {
+                id: userId,
+                nome: nomeFormatado,
+              },
+            ],
+            { onConflict: 'id' }
+          );
+        } catch {
           // Log silencioso para resiliência
+        }
+
+        try {
+          await refreshProfile();
+        } catch {
+          // Mantém resiliência caso ocorra falha na atualização imediata do perfil
         }
       }
 
-      if (data?.session) {
-        router.replace('/');
-      } else {
-        setSucessoConfirmacao(true);
-      }
+      // 3. Redirecionar diretamente para a tela inicial do app
+      router.replace('/');
     } catch {
       setMensagemErro('Ocorreu uma falha ao criar sua conta. Verifique sua conexão e tente novamente.');
-    } finally {
       setLoading(false);
     }
   };
@@ -181,29 +209,8 @@ export default function CadastroScreen() {
               </Text>
             </View>
 
-            {/* Estado de Sucesso de Confirmação */}
-            {sucessoConfirmacao ? (
-              <View style={styles.card}>
-                <View style={styles.successIconCircle}>
-                  <Ionicons name="checkmark-done" size={36} color={AppTheme.colors.success} />
-                </View>
-                <Text style={styles.successTitle}>Conta criada com sucesso! 🌸</Text>
-                <Text style={styles.successText}>
-                  Enviamos uma mensagem para{' '}
-                  <Text style={styles.emailHighlight}>{email}</Text>. Acesse seu e-mail para ativar seu
-                  acesso e depois faça login no aplicativo.
-                </Text>
-                <TouchableOpacity
-                  style={styles.primaryButton}
-                  onPress={() => router.replace('/login')}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.primaryButtonText}>Ir para o Login</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              /* Card do Formulário de Cadastro */
-              <View style={styles.card}>
+            {/* Card do Formulário de Cadastro */}
+            <View style={styles.card}>
                 {mensagemErro && (
                   <View style={styles.errorBox}>
                     <Ionicons
@@ -396,7 +403,6 @@ export default function CadastroScreen() {
                   </TouchableOpacity>
                 </View>
               </View>
-            )}
           </ScrollView>
         </KeyboardAvoidingView>
       </TouchableWithoutFeedback>
@@ -576,33 +582,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: AppTheme.colors.primary,
-  },
-  successIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: AppTheme.colors.successBg,
-    justifyContent: 'center',
-    alignItems: 'center',
-    alignSelf: 'center',
-    marginBottom: 16,
-  },
-  successTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: AppTheme.colors.success,
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  successText: {
-    fontSize: 14,
-    color: AppTheme.colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 24,
-  },
-  emailHighlight: {
-    fontWeight: '700',
-    color: AppTheme.colors.text,
   },
 });
