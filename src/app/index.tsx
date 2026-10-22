@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
   Image,
   RefreshControl,
@@ -9,11 +11,9 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { supabase } from '../supabaseClient';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../supabaseClient';
 
 // Artigos padrão caso o banco não retorne dados no momento
 const ARTIGOS_PADRAO = [
@@ -53,6 +53,7 @@ const HUMORES = [
 
 export default function TelaInicial() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const { session, profile, signOut, loading: authLoading } = useAuth();
 
@@ -113,7 +114,10 @@ export default function TelaInicial() {
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: Math.max(20, insets.bottom) + 90 },
+        ]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -445,14 +449,17 @@ export default function TelaInicial() {
             ))}
           </View>
         </View>
-
-        <View style={{ height: 90 }} />
       </ScrollView>
 
       {/* ============================================================ */}
       {/* BARRA DE NAVEGAÇÃO INFERIOR FLUTUANTE (Estilo Imagens 1 e 2) */}
       {/* ============================================================ */}
-      <View style={styles.floatingNavContainer}>
+      <View
+        style={[
+          styles.floatingNavContainer,
+          { bottom: Math.max(12, insets.bottom) },
+        ]}
+      >
         <View style={styles.floatingNav}>
           <TouchableOpacity style={styles.navItem} activeOpacity={0.7}>
             <Ionicons name="home" size={22} color="#B55A7D" />

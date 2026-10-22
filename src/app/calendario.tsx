@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -11,9 +13,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const MESES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -48,6 +48,7 @@ const SINTOMAS_DISPONIVEIS: SintomaOpcao[] = [
 
 export default function Calendario() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   // Data atual do sistema
   const hoje = new Date();
@@ -224,9 +225,12 @@ export default function Calendario() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-        
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: Math.max(40, insets.bottom + 20) }}
+      >
+
         {/* CABEÇALHO */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
@@ -447,7 +451,7 @@ export default function Calendario() {
           onRequestClose={() => setModalSintomasAberto(false)}
         >
           <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={styles.modalBottomOverlay}
           >
             <TouchableWithoutFeedback onPress={() => setModalSintomasAberto(false)}>
@@ -548,21 +552,21 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 15 },
   iconButton: { padding: 10, backgroundColor: '#FFFFFF', borderRadius: 50, elevation: 2 },
   title: { fontSize: 20, fontWeight: 'bold', color: '#B55A7D' },
-  
+
   // Seletor de Mês e Ano
   monthSelector: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 30, marginBottom: 20, gap: 15 },
   monthTitleButton: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4, paddingHorizontal: 8 },
   monthText: { fontSize: 22, fontWeight: 'bold', color: '#5C5257' },
   chevronButton: { padding: 6 },
-  
+
   weekDays: { flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: 10, marginBottom: 15 },
   weekDayText: { fontSize: 14, fontWeight: 'bold', color: '#999', width: '14%', textAlign: 'center' },
-  
+
   calendarGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 10, justifyContent: 'flex-start' },
   dayContainer: { width: '14.28%', alignItems: 'center', marginBottom: 15, height: 48 },
   dayCircle: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
   dayText: { fontSize: 16, color: '#5C5257' },
-  
+
   periodoBg: { backgroundColor: '#FADEE5' },
   periodoText: { fontWeight: 'bold', color: '#B55A7D' },
   selecionadoBorder: { borderWidth: 1.5, borderColor: '#B55A7D' },
@@ -575,7 +579,7 @@ const styles = StyleSheet.create({
   infoCardDate: { fontSize: 20, fontWeight: 'bold', color: '#5C5257', marginBottom: 5 },
   infoCardSubtitle: { fontSize: 14, color: '#888' },
   sparkleIcon: { width: 45, height: 45, backgroundColor: '#FFF5F8', borderRadius: 25, justifyContent: 'center', alignItems: 'center' },
-  
+
   // Lista de Sintomas no Card
   sintomasSection: { marginBottom: 15 },
   sintomasSectionTitle: { fontSize: 13, fontWeight: 'bold', color: '#888', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 },
@@ -592,7 +596,7 @@ const styles = StyleSheet.create({
   },
   sintomaBadgeText: { fontSize: 13, color: '#B55A7D', fontWeight: '600' },
   sintomaRemoveBtn: { marginLeft: 6 },
-  
+
   // Nota no Card
   notaCard: {
     flexDirection: 'row',
